@@ -17,6 +17,14 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // GitHub Packages for UVCCamera fork (cptskippy/UVCCamera)
+        maven {
+            url = uri("https://maven.pkg.github.com/cptskippy/UVCCamera")
+            credentials {
+                username = (settings.extra["gpr.user"] as? String) ?: System.getenv("GITHUB_ACTOR") ?: ""
+                password = (settings.extra["gpr.key"] as? String) ?: System.getenv("GITHUB_TOKEN") ?: ""
+            }
+        }
     }
 }
 

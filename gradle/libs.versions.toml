@@ -7,7 +7,7 @@ activityCompose = "1.10.0"
 hilt = "2.60.1"
 navigationCompose = "2.9.8"
 lifecycleRuntimeKtx = "2.11.0"
-uvccamera = "0.0.13"
+uvccamera = "1.0.0"
 kotlinxSerialization = "1.8.0"
 ksp = "2.3.10"
 
@@ -29,7 +29,7 @@ androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lif
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version = "1.3.0" }
-uvccamera-lib = { group = "org.uvccamera", name = "lib", version.ref = "uvccamera" }
+uvccamera-lib = { group = "com.github.cptskippy.uvccamera", name = "lib", version.ref = "uvccamera" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 [plugins]
