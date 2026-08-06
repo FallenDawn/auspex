@@ -3,7 +3,7 @@ package com.toyrobotworkshop.auspex.camera.camera2
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.ImageFormat
-import android.graphics.SurfaceTexture
+import android.view.Surface
 import android.hardware.camera2.*
 import android.media.Image
 import android.media.ImageReader
@@ -11,7 +11,6 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import android.util.Size as AndroidSize
-import android.view.Surface
 import com.toyrobotworkshop.auspex.camera.CameraControls
 import com.toyrobotworkshop.auspex.camera.CameraInterface
 import com.toyrobotworkshop.auspex.camera.FocusMode
@@ -110,8 +109,7 @@ class Camera2Backend @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    override suspend fun startPreview(surfaceTexture: SurfaceTexture) {
-        val surface = Surface(surfaceTexture)
+    override suspend fun startPreview(surface: Surface) {
         val cameraId = cameraId ?: throw IllegalStateException("Camera not initialized")
 
         // If camera isn't open yet, store the surface and open it

@@ -5,7 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.SurfaceTexture
+import android.view.Surface
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Handler
@@ -414,7 +414,7 @@ class UVCBackend @Inject constructor(
         }
     }
 
-    override suspend fun startPreview(surfaceTexture: SurfaceTexture) {
+    override suspend fun startPreview(surface: Surface) {
         DiagnosticLogger.camera("startPreview() called — state=${state}")
         val camera = uvccamera ?: throw IllegalStateException("UVC camera not opened — state=${state}")
 
@@ -441,11 +441,12 @@ class UVCBackend @Inject constructor(
                 camera.setPreviewSize(resolution.width, resolution.height, activeFrameFormat)
                 DiagnosticLogger.camera("Step 1 OK — setPreviewSize succeeded")
 
-                // Step 2: Use setPreviewTexture() instead of setPreviewDisplay(Surface) —
-                // this is the correct API for TextureView-backed previews with UVC cameras.
-                DiagnosticLogger.camera("Step 2: setPreviewTexture(surfaceTexture)")
-                camera.setPreviewTexture(surfaceTexture)
-                DiagnosticLogger.camera("Step 2 OK — setPreviewTexture succeeded")
+                // Step 2: Use setPreviewDisplay(Surface) for direct Surface rendering.
+                // This bypasses the TextureView texture composition path and writes directly
+                // to the SurfaceView's underlying ANativeWindow, reducing latency and copies.
+                DiagnosticLogger.camera("Step 2: setPreviewDisplay(surface)")
+                camera.setPreviewDisplay(surface)
+                DiagnosticLogger.camera("Step 2 OK — setPreviewDisplay succeeded")
 
                 // Step 3: Start preview
                 DiagnosticLogger.camera("Step 3: startPreview() on UVCCamera")

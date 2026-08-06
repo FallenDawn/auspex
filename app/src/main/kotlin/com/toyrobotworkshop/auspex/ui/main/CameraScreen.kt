@@ -213,10 +213,11 @@ fun CameraScreen(
             if (isCameraReady) {
                 PreviewView(
                     modifier = Modifier.fillMaxSize(),
-                    cameraResolution = uiState.resolution,
-                    deviceRotation = deviceRotationDegrees.toInt(),
-                    onSurfaceReady = { surfaceTexture ->
-                        viewModel.setPreviewSurface(surfaceTexture)
+                    cameraResolutionWidth = uiState.resolution?.width,
+                    cameraResolutionHeight = uiState.resolution?.height,
+                    deviceRotationDegrees = deviceRotationDegrees,
+                    onSurfaceReady = { surface ->
+                        viewModel.setPreviewSurface(surface)
                     },
                     onSurfaceDestroyed = {
                         viewModel.clearPreviewSurface()

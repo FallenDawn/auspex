@@ -5,7 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.SurfaceTexture
+import android.view.Surface
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.util.Log
@@ -41,8 +41,8 @@ class CameraViewModel @Inject constructor(
     private var camera: CameraInterface? = null
     private var stateCollectionJob: Job? = null
 
-    // SurfaceTexture from PreviewView
-    private var surfaceTexture: SurfaceTexture? = null
+    // Surface from PreviewView (SurfaceView)
+    private var previewSurface: Surface? = null
 
     // Broadcast receiver for USB plug/unplug events from UsbReceiver
     private val usbEventReceiver = object : BroadcastReceiver() {
@@ -103,7 +103,7 @@ class CameraViewModel @Inject constructor(
         // We still call release() to clean up the USBMonitor and handler thread cleanly.
         camera?.release()
         camera = null
-        surfaceTexture = null
+        previewSurface = null
         _uiState.value = CameraUiState(
             status = CameraStatus.NoCamera,
             message = "Camera disconnected. Reconnect the USB camera to continue.",
@@ -266,13 +266,13 @@ class CameraViewModel @Inject constructor(
         }
     }
 
-    fun setPreviewSurface(surfaceTexture: SurfaceTexture) {
-        this.surfaceTexture = surfaceTexture
+    fun setPreviewSurface(surface: Surface) {
+        this.previewSurface = surface
         startPreview()
     }
 
     fun clearPreviewSurface() {
-        this.surfaceTexture = null
+        this.previewSurface = null
     }
 
     private fun startPreview() {
@@ -280,15 +280,15 @@ class CameraViewModel @Inject constructor(
             Log.w(tag, "No camera initialized")
             return
         }
-        val st = surfaceTexture ?: run {
-            Log.w(tag, "No surface texture available")
+        val surface = previewSurface ?: run {
+            Log.w(tag, "No preview surface available")
             return
         }
 
         viewModelScope.launch {
             try {
                 _uiState.value = _uiState.value.copy(status = CameraStatus.Starting)
-                cam.startPreview(st)
+                cam.startPreview(surface)
                 _uiState.value = _uiState.value.copy(
                     status = CameraStatus.Previewing,
                     // Keep resolution in state so PreviewView keeps correct aspect ratio

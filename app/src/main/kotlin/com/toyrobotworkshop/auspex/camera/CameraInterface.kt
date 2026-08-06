@@ -1,6 +1,5 @@
 package com.toyrobotworkshop.auspex.camera
 
-import android.graphics.SurfaceTexture
 import android.view.Surface
 import kotlin.math.roundToInt
 
@@ -32,11 +31,11 @@ interface CameraInterface {
     var controls: CameraControls
 
     /**
-     * Start preview rendering to the given [SurfaceTexture].
-     * Using SurfaceTexture directly is more reliable than wrapping in a Surface,
-     * especially for UVC cameras where setPreviewTexture() is the preferred API.
+     * Start preview rendering to the given [Surface].
+     * A direct Surface (from SurfaceView) avoids the extra texture composition step
+     * that TextureView introduces, reducing latency and CPU usage.
      */
-    suspend fun startPreview(surfaceTexture: SurfaceTexture)
+    suspend fun startPreview(surface: Surface)
 
     /** Stop the preview. */
     suspend fun stopPreview()
