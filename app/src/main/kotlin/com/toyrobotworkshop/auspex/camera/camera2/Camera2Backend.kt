@@ -14,6 +14,7 @@ import android.util.Size as AndroidSize
 import com.toyrobotworkshop.auspex.camera.CameraControls
 import com.toyrobotworkshop.auspex.camera.CameraInterface
 import com.toyrobotworkshop.auspex.camera.FocusMode
+import com.toyrobotworkshop.auspex.camera.LatestFrameBuffer
 import com.toyrobotworkshop.auspex.camera.Size
 import com.toyrobotworkshop.auspex.camera.WhiteBalanceMode
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -46,6 +47,10 @@ class Camera2Backend @Inject constructor(
     private var handlerThread: HandlerThread? = null
     private var backgroundHandler: Handler? = null
     private var imageReader: ImageReader? = null
+
+    // Latest captured frame — populated by the ImageReader callback for photo capture.
+    // Frames are atomically swapped so only the most recent is held; older ones are closed immediately.
+    private val latestFrame = LatestFrameBuffer<android.media.Image>(onEvict = { it.close() })
 
     // Preview surface — set by UI layer
     private var previewSurface: Surface? = null
@@ -136,7 +141,10 @@ class Camera2Backend @Inject constructor(
             2
         ).apply {
             setOnImageAvailableListener({ reader ->
-                // TODO: handle captured JPEG image
+                // Swap into latest-frame buffer; the buffer closes the displaced frame immediately.
+                // This prevents frame backlog when photo capture is slower than the camera rate.
+                val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+                latestFrame.offer(image)
             }, backgroundHandler)
         }
 
@@ -182,6 +190,11 @@ class Camera2Backend @Inject constructor(
         val imageReaderSurface = imageReader?.surface
             ?: throw IllegalStateException("ImageReader not initialized")
 
+        // Preview request targets ONLY the display surface.
+        // ImageReader is included in the session's surface list so Camera2 knows it's a valid
+        // target, but it is NOT added to the repeating request — that would deliver every preview
+        // frame to the reader, causing a frame backlog. Frames arrive there only on explicit
+        // one-shot capture requests (photo capture).
         val surfaces = listOf(surface, imageReaderSurface)
 
         cameraDevice?.createCaptureSession(surfaces,
@@ -205,8 +218,10 @@ class Camera2Backend @Inject constructor(
         val builder = cameraDevice?.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
             ?: return
 
+        // Preview target: display surface only.
+        // Do NOT add imageReader.surface here — that would queue every preview frame
+        // into the reader, causing backlog and latency when nothing is consuming them.
         builder.addTarget(previewSurface!!)
-        builder.addTarget(imageReader!!.surface)
 
         // Apply current controls
         applyControlsToRequest(builder)
@@ -221,6 +236,7 @@ class Camera2Backend @Inject constructor(
     }
 
     override suspend fun stopPreview() {
+        latestFrame.clear()
         captureSession?.close()
         captureSession = null
         cameraDevice?.close()
@@ -264,7 +280,7 @@ class Camera2Backend @Inject constructor(
 
         val builder = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
         builder.addTarget(previewSurface!!)
-        builder.addTarget(imageReader!!.surface)
+        // Do NOT add imageReader surface — preview repeating request targets display only.
         applyControlsToRequest(builder)
 
         try {
@@ -310,6 +326,7 @@ class Camera2Backend @Inject constructor(
     }
 
     override fun release() {
+        latestFrame.clear()
         captureSession?.close()
         captureSession = null
         cameraDevice?.close()
