@@ -57,6 +57,17 @@ jobs:
 
           test -f "$ANDROID_SDK_ROOT/platforms/android-37/android.jar"
 
+      - name: Remove invalid placeholder image resources
+        run: |
+          # The fork contains a text placeholder saved with a .png extension.
+          # Remove only image resources whose file contents are not valid PNG data.
+          while IFS= read -r -d '' file; do
+            if ! file --brief --mime-type "$file" | grep -qx 'image/png'; then
+              echo "Removing invalid placeholder image: $file"
+              rm -f "$file"
+            fi
+          done < <(find app/src/main/res -type f -name '*.png' -print0)
+
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
