@@ -21,8 +21,8 @@ dependencyResolutionManagement {
         maven {
             url = uri("https://maven.pkg.github.com/cptskippy/UVCCamera")
             credentials {
-                username = settings.extra["gpr.user"] as String? ?: System.getenv("GITHUB_ACTOR") ?: ""
-                password = settings.extra["gpr.key"] as String? ?: System.getenv("GITHUB_TOKEN") ?: ""
+                username = providers.gradleProperty("gpr.user").orNull ?: System.getenv("GITHUB_ACTOR").orEmpty()
+                password = providers.gradleProperty("gpr.key").orNull ?: System.getenv("GITHUB_TOKEN").orEmpty()
             }
         }
     }
