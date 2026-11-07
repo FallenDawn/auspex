@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: auspex-apk-${{ github.ref }}
@@ -40,7 +41,7 @@ jobs:
 
       - name: Install Android 37 SDK
         run: |
-          sdkmanager "platforms;android-37" "build-tools;37.0.0"
+          sdkmanager "platforms;android-37"
           yes | sdkmanager --licenses
 
       - name: Make Gradle wrapper executable
