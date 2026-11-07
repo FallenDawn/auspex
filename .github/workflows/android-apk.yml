@@ -31,18 +31,21 @@ jobs:
           fetch-depth: 0
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # The legacy "tools" package no longer exists in Google's SDK repository.
+          packages: platform-tools
 
-      - name: Install Android 37 SDK
+      - name: Accept licenses and install Android 37 SDK
         run: |
-          sdkmanager "platforms;android-37"
           yes | sdkmanager --licenses
+          sdkmanager "platforms;android-37" "platform-tools"
 
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
