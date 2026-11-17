@@ -30,6 +30,7 @@ import com.toyrobotworkshop.auspex.camera.CameraControls
 import com.toyrobotworkshop.auspex.camera.FocusMode
 import com.toyrobotworkshop.auspex.camera.WhiteBalanceMode
 import com.toyrobotworkshop.auspex.ui.main.CameraViewModel
+import com.toyrobotworkshop.auspex.ui.main.ResolutionPreset
 import com.toyrobotworkshop.auspex.util.DiagnosticLogger
 
 /**
@@ -108,6 +109,37 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
+            // Preview and camera output resolution
+            item {
+                SettingsGroup(title = stringResource(R.string.section_preview_resolution)) {
+                    Column {
+                        var resolutionExpanded by remember { mutableStateOf(false) }
+                        SettingsDropdownItem(
+                            label = stringResource(R.string.resolution_mode_label),
+                            value = resolutionPresetDisplayName(uiState.resolutionPreset),
+                            expanded = resolutionExpanded,
+                            onExpandedChange = { resolutionExpanded = it },
+                            options = ResolutionPreset.entries,
+                            optionLabel = { resolutionPresetDisplayName(it) },
+                            onOptionClick = {
+                                viewModel.setResolutionPreset(it)
+                                resolutionExpanded = false
+                            }
+                        )
+                        SettingsInfoItem(
+                            label = stringResource(R.string.active_resolution_label),
+                            value = uiState.resolution?.toString() ?: stringResource(R.string.resolution_waiting),
+                        )
+                        Text(
+                            text = stringResource(R.string.resolution_mode_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+            }
+
             // 1. Camera Controls
             item {
                 SettingsGroup(title = stringResource(R.string.section_camera_controls)) {
@@ -514,5 +546,19 @@ fun focusModeDisplayName(mode: FocusMode?): String {
         FocusMode.INFINITY -> stringResource(R.string.focus_infinity)
         FocusMode.EDGE -> stringResource(R.string.focus_edge)
         null -> stringResource(R.string.mode_auto)
+    }
+}
+
+
+@Composable
+private fun resolutionPresetDisplayName(preset: ResolutionPreset): String {
+    return when (preset) {
+        ResolutionPreset.AUTO -> stringResource(R.string.resolution_auto)
+        ResolutionPreset.PHONE_FULL -> stringResource(R.string.resolution_phone_full)
+        ResolutionPreset.P480 -> "480p · 854×480"
+        ResolutionPreset.P720 -> "720p · 1280×720"
+        ResolutionPreset.P1080 -> "1080p · 1920×1080"
+        ResolutionPreset.P1440 -> "1440p · 2560×1440"
+        ResolutionPreset.P2160 -> "4K · 3840×2160"
     }
 }
