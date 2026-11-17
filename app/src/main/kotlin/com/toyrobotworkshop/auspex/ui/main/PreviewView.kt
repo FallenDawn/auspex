@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -19,9 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
-import kotlin.math.abs
 
 /**
  * SurfaceView-based preview with pinch zoom and one-finger panning.
@@ -63,6 +62,7 @@ fun PreviewView(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .clipToBounds()
             .pointerInput(Unit) {
                 detectTransformGestures { _, panChange, zoomChange, _ ->
                     val nextZoom = (zoom * zoomChange).coerceIn(1f, 8f)
@@ -89,9 +89,19 @@ fun PreviewView(
             factory = { context ->
                 SurfaceView(context).apply {
                     holder.addCallback(callback)
+                    addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+                        view.pivotX = view.width / 2f
+                        view.pivotY = view.height / 2f
+                    }
                 }
             },
             update = { view ->
+                if (cameraResolutionWidth != null && cameraResolutionHeight != null) {
+                    val frame = view.holder.surfaceFrame
+                    if (frame.width() != cameraResolutionWidth || frame.height() != cameraResolutionHeight) {
+                        view.holder.setFixedSize(cameraResolutionWidth, cameraResolutionHeight)
+                    }
+                }
                 view.pivotX = view.width / 2f
                 view.pivotY = view.height / 2f
                 view.scaleX = zoom
