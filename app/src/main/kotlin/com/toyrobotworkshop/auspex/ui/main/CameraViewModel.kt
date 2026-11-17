@@ -365,8 +365,8 @@ class CameraViewModel @Inject constructor(
         return supported.minByOrNull { size ->
             val width = maxOf(size.width, size.height).toFloat()
             val height = minOf(size.width, size.height).toFloat()
-            val aspectPenalty = abs(ln((width / height) / targetAspect)) * 10_000.0
-            val areaPenalty = abs(ln((width * height) / targetArea))
+            val aspectPenalty = abs(ln(((width / height) / targetAspect).toDouble())) * 10_000.0
+            val areaPenalty = abs(ln(((width * height) / targetArea).toDouble()))
             aspectPenalty + areaPenalty
         } ?: cam.resolution
     }
