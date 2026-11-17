@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.ln
 import javax.inject.Inject
 
 /**
@@ -43,6 +45,7 @@ class CameraViewModel @Inject constructor(
 
     // Surface from PreviewView (SurfaceView)
     private var previewSurface: Surface? = null
+    private var autoResolution: com.toyrobotworkshop.auspex.camera.Size? = null
 
     // Broadcast receiver for USB plug/unplug events from UsbReceiver
     private val usbEventReceiver = object : BroadcastReceiver() {
@@ -73,6 +76,13 @@ class CameraViewModel @Inject constructor(
     }
 
     init {
+        val savedPreset = getApplication<Application>()
+            .getSharedPreferences("auspex_settings", Context.MODE_PRIVATE)
+            .getString("resolution_preset", ResolutionPreset.AUTO.name)
+            ?.let { runCatching { ResolutionPreset.valueOf(it) }.getOrNull() }
+            ?: ResolutionPreset.AUTO
+        _uiState.value = _uiState.value.copy(resolutionPreset = savedPreset)
+
         // Register for USB plug/unplug events posted by UsbReceiver
         val filter = IntentFilter().apply {
             addAction(UsbReceiver.ACTION_USB_CAMERA_FOUND)
@@ -123,6 +133,7 @@ class CameraViewModel @Inject constructor(
             return
         }
 
+        autoResolution = null
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(status = CameraStatus.Detecting)
 
@@ -154,6 +165,8 @@ class CameraViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(status = CameraStatus.Initializing)
             camera = cameraManager.initializeCamera2(cameraId)
             val cam = camera!!
+            autoResolution = cam.resolution
+            applySelectedResolution(cam)
             
             observeCameraState(cam)
 
@@ -223,6 +236,8 @@ class CameraViewModel @Inject constructor(
             cam.stateFlow.collect { state ->
                 when (state) {
                     is CameraInterface.State.Ready -> {
+                        if (autoResolution == null) autoResolution = cam.resolution
+                        applySelectedResolution(cam)
                         _uiState.value = _uiState.value.copy(
                             status = CameraStatus.Ready,
                             backendType = if (cam is com.toyrobotworkshop.auspex.camera.camera2.Camera2Backend)
@@ -230,6 +245,7 @@ class CameraViewModel @Inject constructor(
                             else
                                 CameraInterface.BackendType.UVCCAMERA,
                             resolution = cam.resolution,
+                            resolutionPreset = _uiState.value.resolutionPreset,
                             controls = cam.controls,
                             message = if (cam is com.toyrobotworkshop.auspex.camera.camera2.Camera2Backend)
                                 "Camera2 backend ready"
@@ -264,6 +280,95 @@ class CameraViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Select a camera output size. The selected size is chosen only from the
+     * resolutions reported by the active camera backend.
+     */
+    fun setResolutionPreset(preset: ResolutionPreset) {
+        getApplication<Application>()
+            .getSharedPreferences("auspex_settings", Context.MODE_PRIVATE)
+            .edit()
+            .putString("resolution_preset", preset.name)
+            .apply()
+
+        _uiState.value = _uiState.value.copy(resolutionPreset = preset)
+        val cam = camera ?: return
+
+        viewModelScope.launch {
+            val selected = resolveResolution(cam, preset)
+            if (selected == cam.resolution) {
+                _uiState.value = _uiState.value.copy(resolution = cam.resolution)
+                return@launch
+            }
+
+            val wasPreviewing = _uiState.value.status == CameraStatus.Previewing
+            val surface = previewSurface
+            try {
+                if (wasPreviewing) cam.stopPreview()
+                cam.resolution = selected
+                _uiState.value = _uiState.value.copy(resolution = selected)
+                if (wasPreviewing && surface?.isValid == true) {
+                    cam.startPreview(surface)
+                    _uiState.value = _uiState.value.copy(
+                        status = CameraStatus.Previewing,
+                        resolution = cam.resolution,
+                        message = null,
+                    )
+                }
+                Log.d(tag, "Resolution preset $preset applied: $selected")
+            } catch (e: Exception) {
+                Log.e(tag, "Failed to apply resolution preset $preset", e)
+                _uiState.value = _uiState.value.copy(
+                    status = CameraStatus.Error("Failed to apply resolution: ${e.message}"),
+                    message = "Failed to apply resolution: ${e.message}",
+                )
+            }
+        }
+    }
+
+    private fun applySelectedResolution(cam: CameraInterface) {
+        cam.resolution = resolveResolution(cam, _uiState.value.resolutionPreset)
+    }
+
+    private fun resolveResolution(
+        cam: CameraInterface,
+        preset: ResolutionPreset,
+    ): com.toyrobotworkshop.auspex.camera.Size {
+        val supported = cam.supportedResolutions.distinct()
+        if (supported.isEmpty()) return cam.resolution
+
+        if (preset == ResolutionPreset.AUTO) {
+            return autoResolution?.takeIf { it in supported } ?: cam.resolution
+        }
+
+        val display = getApplication<Application>().resources.displayMetrics
+        val target = when (preset) {
+            ResolutionPreset.AUTO -> return autoResolution ?: cam.resolution
+            ResolutionPreset.PHONE_FULL -> {
+                val w = display.widthPixels.coerceAtLeast(1)
+                val h = display.heightPixels.coerceAtLeast(1)
+                val landscape = maxOf(w, h).toFloat()
+                val portrait = minOf(w, h).toFloat()
+                Pair(landscape, portrait)
+            }
+            ResolutionPreset.P480 -> Pair(854f, 480f)
+            ResolutionPreset.P720 -> Pair(1280f, 720f)
+            ResolutionPreset.P1080 -> Pair(1920f, 1080f)
+            ResolutionPreset.P1440 -> Pair(2560f, 1440f)
+            ResolutionPreset.P2160 -> Pair(3840f, 2160f)
+        }
+        val targetArea = target.first * target.second
+        val targetAspect = target.first / target.second
+
+        return supported.minByOrNull { size ->
+            val width = maxOf(size.width, size.height).toFloat()
+            val height = minOf(size.width, size.height).toFloat()
+            val aspectPenalty = abs(ln((width / height) / targetAspect)) * 10_000.0
+            val areaPenalty = abs(ln((width * height) / targetArea))
+            aspectPenalty + areaPenalty
+        } ?: cam.resolution
     }
 
     fun setPreviewSurface(surface: Surface) {
@@ -359,6 +464,7 @@ data class CameraUiState(
     val controls: com.toyrobotworkshop.auspex.camera.CameraControls? = null,
     // Whether video recording is currently active.
     val isRecording: Boolean = false,
+    val resolutionPreset: ResolutionPreset = ResolutionPreset.AUTO,
 )
 
 sealed interface CameraStatus {
@@ -370,4 +476,16 @@ sealed interface CameraStatus {
     data object Previewing : CameraStatus
     data object NoCamera : CameraStatus
     data class Error(val message: String) : CameraStatus
+}
+
+
+/** Output resolution presets. A preset is mapped to a size the camera actually supports. */
+enum class ResolutionPreset {
+    AUTO,
+    PHONE_FULL,
+    P480,
+    P720,
+    P1080,
+    P1440,
+    P2160,
 }
