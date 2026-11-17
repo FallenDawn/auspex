@@ -102,4 +102,11 @@
     <string name="retry">Retry</string>
     <string name="initializing_camera">Initializing camera…</string>
     <string name="gallery">Gallery</string>
+    <string name="section_preview_resolution">Preview &amp; Resolution</string>
+    <string name="resolution_mode_label">Camera output resolution</string>
+    <string name="active_resolution_label">Active output size</string>
+    <string name="resolution_waiting">Waiting for camera</string>
+    <string name="resolution_auto">Auto (camera default)</string>
+    <string name="resolution_phone_full">Phone full-screen match</string>
+    <string name="resolution_mode_hint">The app selects the closest size supported by the connected camera. Changing this setting restarts the preview. Pinch to zoom, drag with one finger, and double-tap to reset the preview scale.</string>
 </resources>
